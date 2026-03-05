@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>東歐之旅 | Travel Planner</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&display=swap');
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #f0f7ff; /* 淺藍色背景 */
+            color: #1e3a8a; /* 深藍色文字 */
+        }
+        .app-container { max-width: 500px; margin: 0 auto; min-height: 100vh; padding-bottom: 100px; }
+        .glass-card { 
+            background: rgba(255, 255, 255, 0.9); 
+            border: 1px solid #d1e9ff; 
+            border-radius: 20px; 
+            box-shadow: 0 4px 15px rgba(191, 219, 254, 0.3);
+        }
+        .nav-item.active { color: #3b82f6; border-top: 2px solid #3b82f6; }
+        .day-badge { background: #3b82f6; color: white; padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+        input, select { 
+            background: #ffffff !important; 
+            color: #1e40af !important; 
+            border: 1px solid #bfdbfe !important; 
+            outline: none;
+        }
+        input:focus { border-color: #3b82f6 !important; }
+        .bottom-nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid #e0f2fe;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="app-container p-5">
+        <header class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold text-blue-600">東歐之旅</h1>
+                <p class="text-sm text-blue-400 font-medium">3/7 - 3/14 · 德奧匈行程</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-inner">
+                <i class="fas fa-map-marked-alt"></i>
+            </div>
+        </header>
+
+        <main>
+            <section v-if="activeTab === 'itinerary'" class="space-y-8">
+                <div v-for="(day, dIndex) in itineraryData" :key="dIndex" class="relative">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="day-badge shadow-md">DAY {{ dIndex + 1 }}</span>
+                        <span class="text-sm font-bold text-blue-800">{{ day.date }} · {{ day.city }}</span>
+                    </div>
+                    
+                    <div class="space-y-3 pl-2">
+                        <div v-for="(item, iIndex) in day.events" :key="iIndex" class="glass-card p-4 flex gap-4 items-start">
+                            <div class="text-[11px] font-bold text-blue-400 pt-1 w-12">{{ item.time }}</div>
+                            <div class="flex-1">
+                                <h3 class="text-sm font-bold text-blue-900">{{ item.title }}</h3>
+                                <p v-if="item.desc" class="text-[11px] text-blue-500 mt-1 leading-relaxed">{{ item.desc }}</p>
+                                <div v-if="item.location" class="mt-3">
+                                    <button @click="openMap(item.location)" class="bg-blue-50 text-blue-600 text-[10px] px-3 py-1 rounded-full border border-blue-100 hover:bg-blue-100 transition">
+                                        <i class="fas fa-location-arrow mr-1"></i> Google Maps
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="activeTab === 'budget'" class="space-y-6 animate-fadeIn">
+                <div class="glass-card p-8 text-center bg-gradient-to-b from-white to-blue-50">
+                    <p class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">旅行開支總額</p>
+                    <h2 class="text-4xl font-black text-blue-600">$ {{ totalExpenses }}</h2>
+                    <div class="mt-4 flex justify-center gap-2">
+                        <span class="text-[10px] bg-white px-2 py-1 rounded-md shadow-sm">幣值：HKD</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-5 space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-blue-400 ml-1">支出項目</label>
+                            <input v-model="newExpense.item" placeholder="例如：HB午餐" class="w-full p-2 rounded-xl text-sm">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-blue-400 ml-1">金額 (HKD)</label>
+                            <input v-model.number="newExpense.amount" type="number" placeholder="0.00" class="w-full p-2 rounded-xl text-sm">
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-bold text-blue-400 ml-1">付款方式</label>
+                        <select v-model="newExpense.type" class="w-full p-2 rounded-xl text-sm appearance-none">
+                            <option value="現金">💵 現金 Cash</option>
+                            <option value="信用卡">💳 信用卡 Credit Card</option>
+                        </select>
+                    </div>
+                    <button @click="addExpense" class="w-full bg-blue-600 text-white p-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition">
+                        記錄一筆開支
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <h3 class="text-xs font-bold text-blue-400 px-1">消費紀錄</h3>
+                    <div v-for="(exp, index) in expenses" :key="index" class="glass-card p-4 flex justify-between items-center">
+                        <div>
+                            <p class="text-sm font-bold text-blue-900">{{ exp.item }}</p>
+                            <p class="text-[10px] text-blue-400">{{ exp.type }}</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="font-bold text-blue-600">${{ exp.amount }}</span>
+                            <button @click="expenses.splice(index, 1)" class="text-blue-200 hover:text-red-400"><i class="fas fa-trash-alt text-xs"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="activeTab === 'shopping'" class="space-y-5">
+                <div class="flex justify-between items-end px-1">
+                    <h2 class="text-lg font-bold text-blue-800">必買清單</h2>
+                    <span class="text-[10px] text-blue-400">{{ shoppingList.length }} 個項目</span>
+                </div>
+                <div class="glass-card p-5">
+                    <div class="flex gap-2 mb-6">
+                        <input v-model="newItem" @keyup.enter="addItem" placeholder="新增清單..." class="flex-1 p-3 rounded-xl text-sm">
+                        <button @click="addItem" class="bg-blue-600 text-white px-5 rounded-xl shadow-md"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div class="space-y-1">
+                        <div v-for="(item, index) in shoppingList" :key="index" class="flex items-center gap-4 p-3 border-b border-blue-50">
+                            <button @click="item.done = !item.done" class="text-lg">
+                                <i :class="item.done ? 'fas fa-check-circle text-blue-500' : 'far fa-circle text-blue-200'"></i>
+                            </button>
+                            <span :class="{'line-through text-blue-200': item.done}" class="flex-1 text-sm font-medium text-blue-800">{{ item.text }}</span>
+                            <button @click="shoppingList.splice(index, 1)" class="text-blue-100 hover:text-red-300"><i class="fas fa-minus-circle"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <nav class="fixed bottom-0 left-0 right-0 bottom-nav px-6 py-3 flex justify-around items-center z-50">
+            <button @click="activeTab = 'itinerary'" :class="['flex flex-col items-center gap-1 p-2', {active: activeTab === 'itinerary'}]">
+                <i class="fas fa-compass text-lg"></i><span class="text-[10px] font-bold">行程</span>
+            </button>
+            <button @click="activeTab = 'budget'" :class="['flex flex-col items-center gap-1 p-2', {active: activeTab === 'budget'}]">
+                <i class="fas fa-wallet text-lg"></i><span class="text-[10px] font-bold">記帳</span>
+            </button>
+            <button @click="activeTab = 'shopping'" :class="['flex flex-col items-center gap-1 p-2', {active: activeTab === 'shopping'}]">
+                <i class="fas fa-shopping-bag text-lg"></i><span class="text-[10px] font-bold">購物</span>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch, onMounted } = Vue;
+        createApp({
+            setup() {
+                const activeTab = ref('itinerary');
+                const newItem = ref('');
+                const newExpense = ref({ item: '', amount: null, type: '現金' });
+                
+                const itineraryData = [
+                    { date: '3/7 (六)', city: '慕尼黑', events: [
+                        { time: '抵達', title: '慕尼黑機場', desc: '買票: Airport-City Day Ticket (€16-17)', location: 'Munich Airport' },
+                        { time: '住宿', title: 'Gambino Hotel', desc: 'WERKSVIERTEL 入住', location: 'gambino hotel WERKSVIERTEL' },
+                        { time: '晚上', title: '瑪利亞廣場 & HB啤酒屋', desc: '新市政廳鐘琴 21:00 / 德式晚餐', location: 'Hofbräuhaus München' }
+                    ]},
+                    { date: '3/8 (日)', city: '慕尼黑', events: [
+                        { time: '上午', title: '寧芬堡宮 & 英國花園', location: 'Nymphenburg Palace' },
+                        { time: '下午', title: 'BMW Welt & 奧林匹克公園', location: 'BMW Welt' },
+                        { time: '景觀', title: '聖彼得教堂塔頂', desc: '看慕尼黑市景', location: 'St. Peter\'s Church, Munich' }
+                    ]},
+                    { date: '3/9 (一)', city: '薩爾斯堡', events: [
+                        { time: '移動', title: '前往薩爾斯堡', desc: '火車 $226.42 / 入住 Mercure', location: 'Mercure Salzburg City Hotel' },
+                        { time: '下午', title: '薩爾斯堡卡 (24h)', desc: '莫札特故居、要塞、馬卡特橋', location: 'Festung Hohensalzburg' }
+                    ]},
+                    { date: '3/10 (二)', city: 'Hallstatt', events: [
+                        { time: '08:00', title: 'Hallstatt 一日遊', desc: '12:00 船 / Skywalk 打卡', location: 'Hallstatt' },
+                        { time: '午餐', title: 'Seecafe Hallstatt', desc: '湖邊美景餐廳', location: 'Seecafe Hallstatt' }
+                    ]},
+                    { date: '3/11 (三)', city: '布達佩斯', events: [
+                        { time: '移動', title: '前往布達佩斯', desc: '入住 The Amberlyn Suite', location: 'The Amberlyn Suite Hotel' },
+                        { time: '傍晚', title: '多瑙河散步 & 買通票', desc: '72小時交通票 / 中央市場', location: 'Central Market Hall Budapest' },
+                        { time: '晚上', title: '多瑙河遊船', desc: '看最美夜景 $286', location: 'Danube River Cruise' }
+                    ]},
+                    { date: '3/12 (四)', city: '布達佩斯', events: [
+                        { time: '上午', title: '國會大樓 & 聖殿', location: 'Hungarian Parliament Building' },
+                        { time: '下午', title: '塞切尼溫泉', desc: '露天溫泉體驗', location: 'Széchenyi Thermal Bath' }
+                    ]},
+                    { date: '3/13 (五)', city: '布達佩斯', events: [
+                        { time: '上午', title: '漁人堡 & 馬提亞斯教堂', location: 'Fisherman\'s Bastion' },
+                        { time: '下午', title: '布達城堡 & 廢墟酒吧', desc: '夜訪 Szimpla Kert', location: 'Szimpla Kert' }
+                    ]},
+                    { date: '3/14 (六)', city: '布達佩斯', events: [
+                        { time: '上午', title: 'New York Café 打卡', desc: '世界最美咖啡館', location: 'New York Café Budapest' },
+                        { time: '返程', title: '出發機場 (15:00)', desc: '機場 100E 巴士 / 18:00 飛機', location: 'Budapest Airport' }
+                    ]}
+                ];
+
+                const expenses = ref([]);
+                const shoppingList = ref([
+                    { text: '莫札特朱古力', done: false },
+                    { text: '鵝肝醬', done: false },
+                    { text: '貴腐酒 Tokaji', done: false }
+                ]);
+
+                onMounted(() => {
+                    const saved = localStorage.getItem('travel_data_v3');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        expenses.value = parsed.expenses || [];
+                        shoppingList.value = parsed.shoppingList || [];
+                    }
+                });
+
+                watch([expenses, shoppingList], () => {
+                    localStorage.setItem('travel_data_v3', JSON.stringify({
+                        expenses: expenses.value,
+                        shoppingList: shoppingList.value
+                    }));
+                }, { deep: true });
+
+                const addExpense = () => {
+                    if (newExpense.value.item && newExpense.value.amount) {
+                        expenses.value.unshift({ ...newExpense.value });
+                        newExpense.value.item = ''; newExpense.value.amount = null;
+                    }
+                };
+                const addItem = () => {
+                    if (newItem.value) {
+                        shoppingList.value.push({ text: newItem.value, done: false });
+                        newItem.value = '';
+                    }
+                };
+                const totalExpenses = computed(() => expenses.value.reduce((sum, e) => sum + e.amount, 0));
+                const openMap = (loc) => {
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
+                };
+
+                return { activeTab, itineraryData, expenses, newExpense, totalExpenses, addExpense, shoppingList, newItem, addItem, openMap };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
